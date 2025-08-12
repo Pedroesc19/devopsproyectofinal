@@ -6,6 +6,7 @@ on:
     paths:
       - "app/**"
       - ".github/workflows/build-and-push.yml"
+  workflow_dispatch: {}
 
 jobs:
   build:
