@@ -50,6 +50,13 @@ jobs:
         run: |
           docker push ${{ steps.ecr.outputs.repo }}:latest
           docker push ${{ steps.ecr.outputs.repo }}:${{ github.sha }}
+      - name: Redeploy ECS service (force new deployment)
+        run: |
+          aws ecs update-service \
+            --cluster ${{ vars.PROJECT_NAME }}-cluster \
+            --service ${{ vars.PROJECT_NAME }}-svc \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
 
       - name: Export IMAGE_URI
         id: out

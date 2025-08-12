@@ -1,0 +1,60 @@
+name: Terraform Destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type DESTROY to confirm"
+        required: true
+        default: ""
+
+concurrency:
+  group: terraform
+  cancel-in-progress: false
+
+jobs:
+  destroy:
+    if: ${{ github.event.inputs.confirm == 'DESTROY' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      TF_VAR_region: ${{ vars.AWS_REGION || 'us-east-1' }}
+      TF_IN_AUTOMATION: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS (Access Keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init -input=false
+
+      # Variables still required for validation
+      - name: Terraform Destroy
+        working-directory: infra
+        env:
+          TF_VAR_project_name: ${{ vars.PROJECT_NAME || 'demo-devops' }}
+          TF_VAR_db_username: ${{ secrets.DB_USERNAME }}
+          TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+          TF_VAR_db_name: ${{ vars.DB_NAME || 'appdb' }}
+          TF_VAR_image_uri: ${{ vars.IMAGE_URI_DEFAULT }}
+        run: terraform destroy -auto-approve -input=false
+
+  guard:
+    # Fail if user didn't confirm
+    if: ${{ github.event.inputs.confirm != 'DESTROY' }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Refusing to run destroy without explicit confirmation" && exit 1
