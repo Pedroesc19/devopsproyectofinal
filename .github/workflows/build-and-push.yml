@@ -1,0 +1,62 @@
+name: Build & Push to ECR
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "app/**"
+      - ".github/workflows/build-and-push.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      PROJECT_NAME: ${{ vars.PROJECT_NAME || 'demo-devops' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS (OIDC)
+        if: vars.AWS_ROLE_TO_ASSUME != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configure AWS (Access Keys fallback)
+        if: vars.AWS_ROLE_TO_ASSUME == ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set ECR URI
+        id: ecr
+        run: echo "repo=${{ steps.login-ecr.outputs.registry }}/${{ env.PROJECT_NAME }}" >> $GITHUB_OUTPUT
+
+      - name: Build image
+        run: |
+          docker build -t ${{ steps.ecr.outputs.repo }}:latest -t ${{ steps.ecr.outputs.repo }}:${{ github.sha }} app
+
+      - name: Push image
+        run: |
+          docker push ${{ steps.ecr.outputs.repo }}:latest
+          docker push ${{ steps.ecr.outputs.repo }}:${{ github.sha }}
+
+      - name: Export IMAGE_URI
+        id: out
+        run: echo "image_uri=${{ steps.ecr.outputs.repo }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Summary
+        run: echo "Built ${{ steps.out.outputs.image_uri }}" >> $GITHUB_STEP_SUMMARY
+
+    outputs:
+      image_uri: ${{ steps.out.outputs.image_uri }}
