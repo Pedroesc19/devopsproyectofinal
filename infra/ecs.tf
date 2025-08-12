@@ -1,5 +1,6 @@
 resource "aws_ecs_cluster" "this" {
-  name = "${var.project_name}-cluster"
+  name         = "${var.project_name}-cluster"
+  force_delete = true
 }
 
 resource "aws_cloudwatch_log_group" "app" {
@@ -51,6 +52,7 @@ resource "aws_ecs_service" "app" {
   task_definition = aws_ecs_task_definition.app.arn
   desired_count   = 1
   launch_type     = "FARGATE"
+  force_delete    = true
 
   network_configuration {
     subnets          = [for s in aws_subnet.public : s.id]
