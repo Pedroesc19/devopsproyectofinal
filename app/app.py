@@ -1,5 +1,5 @@
 import os
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 from sqlalchemy import create_engine, text
 
 DB_HOST = os.getenv("DB_HOST", "localhost")
@@ -14,20 +14,21 @@ def create_app():
 
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
-    # bootstrap de tabla simple
+    # bootstrap de tabla de inventario
     with engine.begin() as conn:
         conn.execute(text(
             """
-            CREATE TABLE IF NOT EXISTS users (
+            CREATE TABLE IF NOT EXISTS items (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                name VARCHAR(100) NOT NULL
+                name VARCHAR(100) NOT NULL,
+                quantity INT NOT NULL DEFAULT 0
             ) ENGINE=InnoDB;
             """
         ))
 
     @app.get("/")
     def index():
-        return jsonify({"status": "ok", "service": "flask-ecs"})
+        return render_template("index.html")
 
     @app.get("/healthz")
     def healthz():
@@ -38,20 +39,27 @@ def create_app():
         except Exception as e:
             return jsonify({"db": "down", "error": str(e)}), 500
 
-    @app.get("/users")
-    def list_users():
+    @app.get("/items")
+    def list_items():
         with engine.connect() as conn:
-            rows = conn.execute(text("SELECT id, name FROM users ORDER BY id"))
-            return jsonify([{"id": r.id, "name": r.name} for r in rows])
+            rows = conn.execute(text("SELECT id, name, quantity FROM items ORDER BY id"))
+            return jsonify([
+                {"id": r.id, "name": r.name, "quantity": r.quantity}
+                for r in rows
+            ])
 
-    @app.post("/users")
-    def create_user():
+    @app.post("/items")
+    def create_item():
         data = request.get_json(silent=True) or {}
         name = data.get("name")
+        quantity = data.get("quantity", 0)
         if not name:
             return jsonify({"error": "name is required"}), 400
         with engine.begin() as conn:
-            conn.execute(text("INSERT INTO users(name) VALUES (:n)"), {"n": name})
+            conn.execute(
+                text("INSERT INTO items(name, quantity) VALUES (:n, :q)"),
+                {"n": name, "q": quantity},
+            )
         return jsonify({"ok": True}), 201
 
     return app
