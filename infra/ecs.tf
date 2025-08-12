@@ -1,6 +1,5 @@
 resource "aws_ecs_cluster" "this" {
   name         = "${var.project_name}-cluster"
-  force_delete = true
 }
 
 resource "aws_cloudwatch_log_group" "app" {
