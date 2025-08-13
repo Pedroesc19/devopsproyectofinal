@@ -27,3 +27,21 @@
    db_password  = "<seguro>"
    db_name      = "appdb"
    ```
+
+## Obtener la URL del servicio
+
+Una vez que la tarea ECS esté corriendo, puedes consultar la IP pública del contenedor con:
+
+Linux/macOS:
+
+```bash
+./scripts/get_service_public_ip.sh <cluster-name> <service-name> [region]
+```
+
+Windows PowerShell:
+
+```powershell
+pwsh scripts/get_service_public_ip.ps1 -ClusterName <cluster-name> -ServiceName <service-name> [-Region us-east-1]
+```
+
+Ambos scripts imprimen `http://<public-ip>/`.
